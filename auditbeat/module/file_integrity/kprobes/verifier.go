@@ -39,10 +39,10 @@ import (
 //go:embed embed
 var embedBTFFolder embed.FS
 
-func getVerifiedProbes(ctx context.Context, timeout time.Duration, logger *logp.Logger) (map[tracing.Probe]tracing.AllocateFn, executor, error) {
+func getVerifiedProbes(ctx context.Context, timeout time.Duration, closeWrite bool, logger *logp.Logger) (map[tracing.Probe]tracing.AllocateFn, executor, error) {
 	fExec := newFixedThreadExecutor(ctx)
 
-	probeMgr, err := newProbeManager(fExec)
+	probeMgr, err := newProbeManager(fExec, closeWrite)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating probe manager: %w", err)
 	}
@@ -68,7 +68,7 @@ func getVerifiedProbes(ctx context.Context, timeout time.Duration, logger *logp.
 			continue
 		}
 
-		if err := verify(ctx, fExec, probes, timeout, logger); err != nil {
+		if err := verify(ctx, fExec, probes, timeout, closeWrite, logger); err != nil {
 			if probeMgr.onErr(err) {
 				continue
 			}
@@ -135,7 +135,7 @@ func loadEmbeddedSpecs() ([]*tkbtf.Spec, error) {
 	return specs, nil
 }
 
-func verify(ctx context.Context, exec executor, probes map[tracing.Probe]tracing.AllocateFn, timeout time.Duration, logger *logp.Logger) error {
+func verify(ctx context.Context, exec executor, probes map[tracing.Probe]tracing.AllocateFn, timeout time.Duration, closeWrite bool, logger *logp.Logger) error {
 	basePath, err := os.MkdirTemp("", "verifier")
 	if err != nil {
 		return fmt.Errorf("error creating temp directory: %w", err)
@@ -147,6 +147,7 @@ func verify(ctx context.Context, exec executor, probes map[tracing.Probe]tracing
 	if err != nil {
 		return fmt.Errorf("error creating verifier: %w", err)
 	}
+	verifier.closeWrite = closeWrite
 
 	pChannel, err := newPerfChannel(probes, 4, 512, exec.GetTID())
 	if err != nil {

@@ -40,11 +40,18 @@ type Watcher interface {
 }
 
 // New creates a new Watcher backed by fsnotify with optional recursive
-// logic.
-func New(recursive bool, isExcludedPath func(path string) bool, logger *logp.Logger) (Watcher, error) {
+// logic. When closeWrite is true, fsnotify.CloseWrite events are also
+// reported (Linux only).
+func New(recursive bool, closeWrite bool, isExcludedPath func(path string) bool, logger *logp.Logger) (Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("error creating new watcher: %w", err)
+	}
+	if closeWrite {
+		if err := watcher.SetCloseWrite(); err != nil {
+			watcher.Close()
+			return nil, fmt.Errorf("error enabling close_write events: %w", err)
+		}
 	}
 	// Use our simulated recursive watches unless the fsnotify implementation
 	// supports OS-provided recursive watches

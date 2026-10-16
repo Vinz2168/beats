@@ -486,7 +486,7 @@ func (p *monitorTestSuite) TestNew() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	m, err := New(true, p.Logger)
+	m, err := New(true, false, p.Logger)
 	p.Require().NoError(err)
 
 	tmpDir, err := os.MkdirTemp("", "kprobe_bench_test")
@@ -638,7 +638,7 @@ func BenchmarkMonitor(b *testing.B) {
 
 	tarFilePath := filepath.Join(tmpDir, "linux-6.6.7.tar.xz")
 
-	m, err := New(true, logp.NewLogger("bench_monitor"))
+	m, err := New(true, false, logp.NewLogger("bench_monitor"))
 	require.NoError(b, err)
 
 	errChan := make(chan error)

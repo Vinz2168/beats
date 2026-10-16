@@ -1,0 +1,9 @@
+kind: feature
+summary: Add opt-in closed_write events to the file_integrity module
+description: >
+  The new emit_close_write option (default false) makes the file_integrity
+  module emit a closed_write event when a file that was opened for writing
+  is closed (IN_CLOSE_WRITE). Supported by the fsnotify and kprobes backends
+  on Linux. closed_write events are always published, even when the file
+  state did not change since the previous event.
+component: auditbeat

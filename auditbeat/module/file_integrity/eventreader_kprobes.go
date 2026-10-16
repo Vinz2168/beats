@@ -69,7 +69,7 @@ func (r kProbesReader) Processor() beat.Processor {
 }
 
 func (r kProbesReader) Start(done <-chan struct{}) (<-chan Event, error) {
-	watcher, err := kprobes.New(r.config.Recursive, r.log)
+	watcher, err := kprobes.New(r.config.Recursive, r.config.EmitCloseWrite, r.log)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +210,8 @@ func kProbeTypeToAction(op uint32) Action {
 		return Moved
 	case unix.IN_ATTRIB:
 		return AttributesModified
+	case unix.IN_CLOSE_WRITE:
+		return ClosedWrite
 	default:
 		return 0
 	}

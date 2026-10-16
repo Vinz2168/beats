@@ -139,6 +139,19 @@ func (e *eProcessor) process(pe *ProbeEvent) error {
 
 		return e.emitter.Emit(entry.Path(), pe.Meta.TID, unix.IN_MODIFY)
 
+	case pe.MaskCloseWrite == 1:
+		entry := e.cache.Get(dKey{
+			Ino:      pe.FileIno,
+			DevMajor: pe.FileDevMajor,
+			DevMinor: pe.FileDevMinor,
+		})
+
+		if entry == nil {
+			return nil
+		}
+
+		return e.emitter.Emit(entry.Path(), pe.Meta.TID, unix.IN_CLOSE_WRITE)
+
 	case pe.MaskAttrib == 1:
 		entry := e.cache.Get(dKey{
 			Ino:      pe.FileIno,

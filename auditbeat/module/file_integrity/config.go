@@ -101,6 +101,8 @@ type Config struct {
 	IncludeFiles        []match.Matcher `config:"include_files"`
 	Backend             Backend         `config:"backend"`
 	FlushInterval       time.Duration   `config:"flush_interval"` // Interval for flushing expired operations (ETW backend only). Default: 1m, minimum: 1s.
+	// EmitCloseWrite enables closed_write events (Linux fsnotify and kprobes backends only).
+	EmitCloseWrite bool `config:"emit_close_write"`
 }
 
 // Validate validates the config data and return an error explaining all the
@@ -190,6 +192,15 @@ nextHash:
 			if c.Backend != BackendAuto {
 				errs = append(errs, errors.New("backend can only be specified on linux or windows"))
 			}
+		}
+	}
+
+	if c.EmitCloseWrite {
+		switch {
+		case runtime.GOOS != "linux":
+			errs = append(errs, errors.New("emit_close_write is only supported on linux"))
+		case c.Backend == BackendEBPF:
+			errs = append(errs, errors.New("emit_close_write is not supported by the ebpf backend"))
 		}
 	}
 

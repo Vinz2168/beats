@@ -29,6 +29,7 @@ import (
 type fsNotifyParentSymbol struct {
 	symbolName string
 	filter     string
+	closeWrite bool
 }
 
 func loadFsNotifyParentSymbol(probeMgr *probeManager) error {
@@ -53,9 +54,16 @@ func loadFsNotifyParentSymbol(probeMgr *probeManager) error {
 		return spec.ContainsSymbol(symbolInfo.symbolName)
 	})
 
+	filter := "(mc==1 || md==1 || ma==1 || mm==1)"
+	if probeMgr.closeWrite {
+		// close write events travel the same kernel path as modify events.
+		filter = "(mc==1 || md==1 || ma==1 || mm==1 || mcw==1)"
+	}
+
 	probeMgr.symbols = append(probeMgr.symbols, &fsNotifyParentSymbol{
 		symbolName: symbolInfo.symbolName,
-		filter:     "(mc==1 || md==1 || ma==1 || mm==1)",
+		filter:     filter,
+		closeWrite: probeMgr.closeWrite,
 	})
 
 	return nil
@@ -80,6 +88,7 @@ func (f *fsNotifyParentSymbol) buildProbes(spec *tkbtf.Spec) ([]*probeWithAllocF
 		tkbtf.NewFetchArg("pdmn", tkbtf.BitFieldTypeMask(devMinor)).FuncParamWithName("dentry", "d_parent", "d_inode", "i_sb", "s_dev"),
 		tkbtf.NewFetchArg("fn", "string").FuncParamWithName("dentry", "d_name", "name"),
 	).SetFilter(f.filter)
+	addCloseWriteFetchArg(probe, f.closeWrite)
 
 	btfSymbol := tkbtf.NewSymbol(f.symbolName).AddProbes(probe)
 

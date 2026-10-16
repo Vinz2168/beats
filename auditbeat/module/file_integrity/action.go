@@ -39,6 +39,9 @@ const (
 	Moved
 	ConfigChange
 	InitialScan
+	// ClosedWrite is reported when a file that was opened for writing is
+	// closed (IN_CLOSE_WRITE). Only emitted when emit_close_write is enabled.
+	ClosedWrite
 )
 
 var actionNames = map[Action]string{
@@ -50,6 +53,7 @@ var actionNames = map[Action]string{
 	Moved:              "moved",
 	ConfigChange:       "config_change",
 	InitialScan:        "initial_scan",
+	ClosedWrite:        "closed_write",
 }
 
 var ecsActionNames = map[Action]string{
@@ -61,6 +65,7 @@ var ecsActionNames = map[Action]string{
 	Moved:              "change",
 	ConfigChange:       "change",
 	InitialScan:        "info",
+	ClosedWrite:        "change",
 }
 
 type actionOrderKey struct {

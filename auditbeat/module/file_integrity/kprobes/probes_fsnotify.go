@@ -36,6 +36,7 @@ type fsNotifySymbol struct {
 	pathProbeFilter   string
 	lastOnErr         error
 	seenSpecs         map[*tkbtf.Spec]struct{}
+	closeWrite        bool
 }
 
 func loadFsNotifySymbol(probeMgr *probeManager) error {
@@ -56,6 +57,7 @@ func loadFsNotifySymbol(probeMgr *probeManager) error {
 	// mask_moved_to, and mask_moved_from events.
 	probeMgr.symbols = append(probeMgr.symbols, &fsNotifySymbol{
 		symbolName: symbolInfo.symbolName,
+		closeWrite: probeMgr.closeWrite,
 	})
 
 	return nil
@@ -110,10 +112,32 @@ func (sym *fsNotifySymbol) setKprobeFiltersFromBTF(spec *tkbtf.Spec) error {
 	return nil
 }
 
+// maskFilter returns the mask part of the probe filters. Close write events
+// (mcw) travel the same kernel path as modify events (fsnotify_file), so they
+// are only forwarded when modify events are.
+func (sym *fsNotifySymbol) maskFilter(withModify bool) string {
+	modify := ""
+	if withModify {
+		modify = " || mm==1"
+		if sym.closeWrite {
+			modify += " || mcw==1"
+		}
+	}
+	return "(mc==1 || md==1 || ma==1" + modify + " || mmt==1 || mmf==1)"
+}
+
 func (sym *fsNotifySymbol) setKprobeFilters(eventPath uint64, eventInode uint64, eventDentry uint64) {
-	sym.pathProbeFilter = fmt.Sprintf("(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==%d", eventPath)
-	sym.inodeProbeFilter = fmt.Sprintf("(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==%d && nptr!=0", eventInode)
-	sym.dentryProbeFilter = fmt.Sprintf("(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==%d", eventDentry)
+	sym.pathProbeFilter = fmt.Sprintf("%s && dt==%d", sym.maskFilter(true), eventPath)
+	sym.inodeProbeFilter = fmt.Sprintf("%s && dt==%d && nptr!=0", sym.maskFilter(true), eventInode)
+	sym.dentryProbeFilter = fmt.Sprintf("%s && dt==%d", sym.maskFilter(true), eventDentry)
+}
+
+// addCloseWriteFetchArg adds the close write mask fetch arg to the given
+// probe when close write events are enabled.
+func addCloseWriteFetchArg(probe *tkbtf.Probe, closeWrite bool) {
+	if closeWrite {
+		probe.AddFetchArgs(tkbtf.NewFetchArg("mcw", tkbtf.BitFieldTypeMask(fsEventCloseWrite)).FuncParamWithName("mask"))
+	}
 }
 
 func (sym *fsNotifySymbol) buildProbes(spec *tkbtf.Spec) ([]*probeWithAllocFunc, error) {
@@ -201,6 +225,10 @@ func (sym *fsNotifySymbol) buildProbes(spec *tkbtf.Spec) ([]*probeWithAllocFunc,
 		tkbtf.NewFetchArg("fn", "string").FuncParamWithCustomType("data", tkbtf.WrapPointer, "dentry", "d_name", "name"),
 	).SetFilter(sym.dentryProbeFilter)
 
+	addCloseWriteFetchArg(pathProbe, sym.closeWrite)
+	addCloseWriteFetchArg(inodeProbe, sym.closeWrite)
+	addCloseWriteFetchArg(dentryProbe, sym.closeWrite)
+
 	btfSymbol := tkbtf.NewSymbol(sym.symbolName).AddProbes(
 		inodeProbe,
 		dentryProbe,
@@ -240,9 +268,9 @@ func (sym *fsNotifySymbol) onErr(err error) bool {
 		// on ErrVerifyOverlappingEvents for linux kernel versions < 5.7 the __fsnotify_parent
 		// probe is capturing and sending the modify events as well, thus disable them for
 		// fsnotify and return true to signal a retry.
-		sym.inodeProbeFilter = "(mc==1 || md==1 || ma==1 || mmt==1 || mmf==1) && dt==2 && nptr!=0"
-		sym.dentryProbeFilter = "(mc==1 || md==1 || ma==1 || mmt==1 || mmf==1) && dt==3"
-		sym.pathProbeFilter = "(mc==1 || md==1 || ma==1 || mmt==1 || mmf==1) && dt==1"
+		sym.inodeProbeFilter = sym.maskFilter(false) + " && dt==2 && nptr!=0"
+		sym.dentryProbeFilter = sym.maskFilter(false) + " && dt==3"
+		sym.pathProbeFilter = sym.maskFilter(false) + " && dt==1"
 
 		return true
 	case errors.Is(err, ErrVerifyMissingEvents):
@@ -251,9 +279,9 @@ func (sym *fsNotifySymbol) onErr(err error) bool {
 		// probe is not capturing and sending the modify attributes events for directories, thus
 		// we adjust the filters to allow them flowing through fsnotify and return true to signal
 		// a retry.
-		sym.pathProbeFilter = "(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==1"
-		sym.inodeProbeFilter = "(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==2 && (nptr!=0 || (mid==1 && ma==1))"
-		sym.dentryProbeFilter = "(mc==1 || md==1 || ma==1 || mm==1 || mmt==1 || mmf==1) && dt==3"
+		sym.pathProbeFilter = sym.maskFilter(true) + " && dt==1"
+		sym.inodeProbeFilter = sym.maskFilter(true) + " && dt==2 && (nptr!=0 || (mid==1 && ma==1))"
+		sym.dentryProbeFilter = sym.maskFilter(true) + " && dt==3"
 
 		return true
 	default:

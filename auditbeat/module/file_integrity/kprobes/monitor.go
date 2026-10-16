@@ -78,11 +78,13 @@ type Monitor struct {
 	closeErr    error
 }
 
-func New(isRecursive bool, log *logp.Logger) (*Monitor, error) {
+// New creates a new kprobes based Monitor. When closeWrite is true, close
+// events of files opened for writing are also reported (IN_CLOSE_WRITE).
+func New(isRecursive bool, closeWrite bool, log *logp.Logger) (*Monitor, error) {
 	ctx := context.Background()
 	monLogger := log.With("monitor")
 
-	validatedProbes, exec, err := getVerifiedProbes(ctx, 5*time.Second, monLogger)
+	validatedProbes, exec, err := getVerifiedProbes(ctx, 5*time.Second, closeWrite, monLogger)
 	if err != nil {
 		return nil, fmt.Errorf("error getting kprobes: %w", err)
 	}

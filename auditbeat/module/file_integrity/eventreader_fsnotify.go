@@ -42,7 +42,7 @@ type fsNotifyReader struct {
 }
 
 func (r *fsNotifyReader) Start(done <-chan struct{}) (<-chan Event, error) {
-	watcher, err := monitor.New(r.config.Recursive, r.config.IsExcludedPath, r.log)
+	watcher, err := monitor.New(r.config.Recursive, r.config.EmitCloseWrite, r.config.IsExcludedPath, r.log)
 	if err != nil {
 		return nil, err
 	}
@@ -176,6 +176,8 @@ func opToAction(op fsnotify.Op) Action {
 		return Moved
 	case fsnotify.Chmod:
 		return AttributesModified
+	case fsnotify.CloseWrite:
+		return ClosedWrite
 	default:
 		return 0
 	}

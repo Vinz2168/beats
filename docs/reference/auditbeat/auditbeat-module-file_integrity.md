@@ -141,6 +141,9 @@ This module also supports the [standard configuration options](#module-standard-
     * {applies_to}`stack: ga 9.2.0` **Windows:** `auto`, `fsnotify`, `etw`. Default: `fsnotify`.
     * {applies_to}`stack: ga 9.2.0` **macOS:** Only `auto` and `fsnotify` are supported. Default: `fsnotify`
 
+**`emit_close_write`**
+:   (**Linux, `fsnotify` and `kprobes` backends only**) When set to `true`, a `closed_write` event is emitted when a file that was opened for writing is closed (inotify `IN_CLOSE_WRITE`). This is useful to detect the end of a write, for example when an upload to a landing directory has completed. `closed_write` events are always published, even when the file did not change since the previous event, and they contain the file metadata and hashes computed at the time the event is processed. The event is emitted on every close of a file descriptor opened with write access, even when nothing was written. Default: `false`.
+
 **`flush_interval`** {applies_to}`stack: ga 9.2.0`
 :   (**ETW backend only**) Controls how often the ETW backend flushes event correlation groups. The ETW backend groups related file operations (like create, write, close) to provide meaningful events. This setting determines how long to wait for related events before considering an operation complete and sending the event. Setting a shorter interval will send events more quickly but may break up related operations. Setting a longer interval will provide better event correlation but may delay event delivery and impact memory footprint. This option is ignored when using other backends. Default: `1m`.
 

@@ -49,6 +49,10 @@ var probeEventPool = sync.Pool{
 //
 //	FileIno, FileDevMajor, FileDevMinor
 //
+// For MaskCloseWrite, the fields that are filled are:
+//
+//	FileIno, FileDevMajor, FileDevMinor
+//
 // For MaskAttrib, the fields that are filled are:
 //
 //	FileIno, FileDevMajor, FileDevMinor
@@ -75,6 +79,7 @@ type ProbeEvent struct {
 	MaskDir        uint32 `kprobe:"mid,allowundefined"`
 	MaskMoveTo     uint32 `kprobe:"mmt,allowundefined"`
 	MaskMoveFrom   uint32 `kprobe:"mmf,allowundefined"`
+	MaskCloseWrite uint32 `kprobe:"mcw,allowundefined"`
 	ParentIno      uint64 `kprobe:"pi"`
 	ParentDevMajor uint32 `kprobe:"pdmj"`
 	ParentDevMinor uint32 `kprobe:"pdmn"`
@@ -97,6 +102,7 @@ func allocProbeEvent() any {
 	probeEvent.MaskDir = 0
 	probeEvent.MaskMoveTo = 0
 	probeEvent.MaskMoveFrom = 0
+	probeEvent.MaskCloseWrite = 0
 	return probeEvent
 }
 
@@ -113,6 +119,7 @@ func allocDeleteProbeEvent() any {
 	probeEvent.MaskDir = 0
 	probeEvent.MaskMoveTo = 0
 	probeEvent.MaskMoveFrom = 0
+	probeEvent.MaskCloseWrite = 0
 	return probeEvent
 }
 
@@ -129,6 +136,7 @@ func allocMonitorProbeEvent() any {
 	probeEvent.MaskDir = 0
 	probeEvent.MaskMoveTo = 0
 	probeEvent.MaskMoveFrom = 0
+	probeEvent.MaskCloseWrite = 0
 	return probeEvent
 }
 

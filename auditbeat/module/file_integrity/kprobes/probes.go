@@ -37,6 +37,8 @@ const (
 	fsEventCreate    = uint32(unix.IN_CREATE)
 	fsEventDelete    = uint32(unix.IN_DELETE)
 	fsEventIsDir     = uint32(unix.IN_ISDIR)
+	// fsEventCloseWrite is FS_CLOSE_WRITE (0x8), only probed when close_write events are enabled.
+	fsEventCloseWrite = uint32(unix.IN_CLOSE_WRITE)
 )
 
 const (
@@ -61,13 +63,16 @@ type probeManager struct {
 	symbols              []symbol
 	buildChecks          []shouldBuildCheck
 	getSymbolInfoRuntime func(symbolName string) (runtimeSymbolInfo, error)
+	// closeWrite enables probing of FS_CLOSE_WRITE events.
+	closeWrite bool
 }
 
-func newProbeManager(exec executor) (*probeManager, error) {
+func newProbeManager(exec executor, closeWrite bool) (*probeManager, error) {
 	probeMgr := &probeManager{
 		symbols:              nil,
 		buildChecks:          nil,
 		getSymbolInfoRuntime: getSymbolInfoRuntime,
+		closeWrite:           closeWrite,
 	}
 
 	if err := loadFsNotifySymbol(probeMgr); err != nil {

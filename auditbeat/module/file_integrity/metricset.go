@@ -259,6 +259,11 @@ func (ms *MetricSet) reportEvent(reporter mb.PushReporterV2, event *Event) bool 
 	}
 
 	changed, lastEvent := ms.hasFileChangedSinceLastEvent(event)
+	// A closed_write event signals the end of a write, not a change of the
+	// file: always publish it, even when the state matches the last event.
+	if event.Action == ClosedWrite {
+		changed = true
+	}
 	if changed {
 		// Publish event if it changed.
 		if ok := reporter.Event(buildMetricbeatEvent(event, lastEvent != nil)); !ok {

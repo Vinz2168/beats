@@ -43,6 +43,7 @@ var eventGenerators = []func(*eventsVerifier, string, string) error{
 		}
 		defer file.Close()
 		e.addEventToExpect(targetFilePath, unix.IN_CREATE)
+		e.addCloseWriteToExpect(targetFilePath)
 		return nil
 	},
 	// truncate file - generates 1 event
@@ -64,6 +65,7 @@ var eventGenerators = []func(*eventsVerifier, string, string) error{
 			return err
 		}
 		e.addEventToExpect(targetFilePath, unix.IN_MODIFY)
+		e.addCloseWriteToExpect(targetFilePath)
 		return nil
 	},
 	// change owner of file - generates 1 event
@@ -199,6 +201,8 @@ type eventsVerifier struct {
 	basePath         string
 	eventsToExpect   map[eventID]int
 	eventsToExpectNr int
+	// closeWrite is true when the probes also report close write events.
+	closeWrite bool
 }
 
 func newEventsVerifier(basePath string) (*eventsVerifier, error) {
@@ -242,6 +246,16 @@ func (e *eventsVerifier) addEventToExpect(path string, op uint32) {
 	}
 
 	e.eventsToExpect[eID]++
+}
+
+// addCloseWriteToExpect adds a close write event to the list of expected
+// events, but only when close write events are enabled. Every file opened for
+// writing by the generators is closed while the verifier lock is held, so the
+// event is always expected before it is validated.
+func (e *eventsVerifier) addCloseWriteToExpect(path string) {
+	if e.closeWrite {
+		e.addEventToExpect(path, unix.IN_CLOSE_WRITE)
+	}
 }
 
 func (e *eventsVerifier) GenerateEvents() error {
